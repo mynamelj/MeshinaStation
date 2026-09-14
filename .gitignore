@@ -4,3 +4,5 @@ configs/backups/
 tests/bin/
 tests/obj/
 .vs/
+bin/
+obj/
