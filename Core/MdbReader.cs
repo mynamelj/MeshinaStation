@@ -1,4 +1,4 @@
-using System.Data.OleDb;
+﻿using System.Data.OleDb;
 using System.Globalization;
 using System.IO;
 
@@ -19,14 +19,24 @@ namespace MeshinaStandalone
 
     public sealed class MdbReader : IMdbReader
     {
-        public static readonly string[] NumericFields = { "Fi", "fii", "Fr" };
         private readonly string provider;
-        private readonly HashSet<string> requiredFields;
+        private readonly string[] fields;
 
-        public MdbReader(string provider, IEnumerable<string> requiredFields = null)
+        public MdbReader(string provider, IEnumerable<string> fields)
         {
             this.provider = provider;
-            this.requiredFields = new HashSet<string>(requiredFields ?? new[] { "Fi", "fii", "Fr" }, StringComparer.OrdinalIgnoreCase);
+            this.fields = fields?.ToArray() ?? throw new ArgumentNullException(nameof(fields));
+            ValidateFields(this.fields);
+        }
+
+        public static void ValidateFields(IEnumerable<string> fields)
+        {
+            var names = fields.ToArray();
+            if (names.Length == 0 || names.Any(f => string.IsNullOrWhiteSpace(f) ||
+                f.IndexOfAny(new[] { '[', ']' }) >= 0 || f.Any(char.IsControl) ||
+                string.Equals(f, "Result", StringComparison.OrdinalIgnoreCase)) ||
+                names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Length)
+                throw new InvalidDataException("MDB字段至少配置一项，不能重复、为空、包含方括号/控制字符或使用保留字段Result。");
         }
 
         public MeshinaMeasurement Read(string path)
@@ -47,21 +57,17 @@ namespace MeshinaStandalone
             }
             // 不依赖无序的第一条记录；单件单文件必须恰好一行。
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT TOP 2 " + string.Join(",", NumericFields.Select(f => "[" + f + "]"))
+            command.CommandText = "SELECT TOP 2 " + string.Join(",", fields.Select(f => "[" + f + "]"))
                 + ",[Result] FROM [TJSHEET]";
             command.CommandTimeout = 5;
             using var reader = command.ExecuteReader();
             if (reader == null || !reader.Read()) throw new InvalidDataException("TJSHEET尚无检测记录，继续等待");
             var measurement = new MeshinaMeasurement();
-            foreach (string field in NumericFields)
+            foreach (string field in fields)
             {
                 object value = reader[field];
                 if (value == DBNull.Value)
-                {
-                    if (requiredFields.Contains(field)) throw new InvalidDataException($"必填检测字段{field}为空，继续等待完整数据");
-                    measurement.EmptyFields.Add(field);
-                    continue; // 设备未启用的检测项保留为空，不伪造为0或上传为0。
-                }
+                    throw new InvalidDataException($"配置的检测字段{field}为空，继续等待完整数据");
                 measurement.Values.Add(field, Convert.ToDecimal(value, CultureInfo.InvariantCulture));
             }
             measurement.Result = reader["Result"] == DBNull.Value ? "" : Convert.ToString(reader["Result"]);

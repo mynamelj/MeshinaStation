@@ -27,6 +27,10 @@
             <TextBlock x:Name="ConfigText" VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#526477" TextTrimming="CharacterEllipsis"/>
         </DockPanel>
         <StackPanel Margin="0,40,0,10" Grid.ColumnSpan="2" Grid.RowSpan="2">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <TextBlock Text="等待MDB超时（秒）：" VerticalAlignment="Center"/>
+                <TextBox x:Name="MdbTimeoutBox" Text="100" Width="65" ToolTip="进站OK后开始计时，未发现MDB则释放任务；启动前设置"/>
+            </StackPanel>
             <ComboBox x:Name="StationBox" Padding="6" SelectionChanged="StationChanged"/>
             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                 <Button x:Name="StartButton" Content="启动工位" Click="StartClick"/>
@@ -54,7 +58,7 @@
                             <TextBlock Text="{Binding Title}" Foreground="#526477" FontWeight="Bold"/>
                             <TextBlock Text="{Binding SN}" FontSize="17" Margin="0,6,0,0" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding ScanTime}" TextWrapping="Wrap" FontSize="12" Foreground="#526477" Margin="0,4,0,0"/>
-                            <TextBlock Text="{Binding Stage}" Foreground="#163B5C" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Stage}" Foreground="{Binding StageColor}" Margin="0,6,0,0" TextWrapping="Wrap"/>
                             <UniformGrid Columns="2" Margin="0,12,0,8">
                                 <StackPanel>
                                     <TextBlock Text="进站" Foreground="#526477"/>
@@ -66,7 +70,7 @@
                                 </StackPanel>
                             </UniformGrid>
                             <TextBlock Text="{Binding Mdb}" ToolTip="{Binding MdbPath}" TextTrimming="CharacterEllipsis" Foreground="#526477" Margin="0,0,0,8"/>
-                            <DataGrid ItemsSource="{Binding Values}" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" RowHeight="25" Height="107">
+                            <DataGrid ItemsSource="{Binding Values}" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" RowHeight="25" Height="{Binding ValuesHeight}" ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="字段" Binding="{Binding Field}" Width="50"/>
                                     <DataGridTextColumn Header="数值" Binding="{Binding Value}" Width="*" MinWidth="90"/>
@@ -80,7 +84,6 @@
         <StackPanel Grid.Row="3" Margin="0,10,0,10" Grid.ColumnSpan="2" Grid.RowSpan="2">
             <TextBlock x:Name="StatusText" Text="请核对工位配置后启动" FontSize="14" TextWrapping="Wrap" MaxHeight="62" TextTrimming="CharacterEllipsis"/>
             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <Button x:Name="RetryButton" Content="重试原任务" Click="RetryClick" IsEnabled="False"/>
                 <Button x:Name="AbortButton" Content="终止全部任务" Click="AbortClick" IsEnabled="False"/>
             </StackPanel>
         </StackPanel>

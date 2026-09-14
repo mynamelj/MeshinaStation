@@ -9,12 +9,115 @@ internal static class Program
     static MeshinaJob Request() => new MeshinaJob { FeedingCheckRequest = new FeedingCheckModel(), CheckOutRequest = new SNCheckoutModel() };
     static async Task Main()
     {
+        await PriorityAndTimeout();
+        await ConfiguredFields();
         await QueueAndBinding();
         await SlowRequestsAndAbort();
         await UnknownAndReadFailure();
         await ImmediateReadAndLogFailure();
         await MissingBindingAndPendingAbort();
         Console.WriteLine($"PASS: {checks} assertions");
+    }
+    static async Task PriorityAndTimeout()
+    {
+        var f = new Fixture();
+        f.Gateway.InOutcome = MeshinaMesOutcome.Rejected;
+        await f.Service.ScanAsync("FAIL", Request);
+        f.Gateway.InOutcome = MeshinaMesOutcome.Accepted;
+        await f.Service.ScanAsync("A", Request);
+        Check(f.Service.DisplayJobs[0].SN == "A" && f.Service.DisplayJobs[1] == null, "feeding NG next scan still uses slot one");
+        var a = f.File("a"); await f.Service.TickAsync();
+        await f.Service.ScanAsync("B", Request);
+        f.Advance(1); await f.Service.TickAsync();
+        Check(f.Service.TaskEnabled[0] && !f.Service.TaskEnabled[1], "finished slot one enabled while slot two occupied");
+        await f.Service.ScanAsync("C", Request);
+        Check(f.Service.DisplayJobs[0].SN == "C" && f.Service.DisplayJobs[1].SN == "B", "new task takes free slot one");
+        var b = f.File("b"); await f.Service.TickAsync();
+        Check(f.Service.DisplayJobs[1].MdbPath == b && f.Service.DisplayJobs[0].MdbPath == null, "older slot two binds before newer slot one");
+        await f.Service.AbortAsync();
+        Check(f.Service.TaskEnabled.All(e => e) && f.Service.DisplayJobs.All(j => j == null), "abort enables and clears both slots");
+
+        var g = new Fixture();
+        g.Gateway.InWait = new TaskCompletionSource<bool>();
+        var scan = g.Service.ScanAsync("WAIT", Request);
+        g.Advance(150); await g.Service.TickAsync();
+        Check(!g.Service.TaskEnabled[0], "feeding request reserves slot and does not start MDB timer");
+        g.Gateway.InWait.SetResult(true); await scan;
+        g.Advance(99); await g.Service.TickAsync();
+        Check(!g.Service.TaskEnabled[0], "not timed out at 99 seconds after accepted reply");
+        g.Advance(1); await g.Service.TickAsync();
+        Check(g.Service.TaskEnabled[0] && g.Service.DisplayJobs[0].Stage == MeshinaStage.MdbTimedOut, "default 100 seconds expires unbound task");
+        await g.Service.ScanAsync("WAIT", Request);
+        Check(g.Service.DisplayJobs[0].Stage == MeshinaStage.WaitingForMdb, "timeout permits same SN in slot one");
+
+        var h = new Fixture(timeout: 5);
+        await h.Service.ScanAsync("SHORT", Request);
+        h.Advance(5); await h.Service.TickAsync();
+        Check(h.Service.Current == null, "custom timeout is used");
+        await h.Service.ScanAsync("BOUND", Request);
+        var bound = h.File("bound"); h.Reader.FailPath = bound;
+        await h.Service.TickAsync(); h.Advance(10); await h.Service.TickAsync();
+        Check(!h.Service.TaskEnabled[0] && h.Service.Current.MdbPath == bound, "bound but unreadable MDB does not release slot");
+        var both = new Fixture(timeout: 5);
+        await both.Service.ScanAsync("ONE", Request); both.Advance(2);
+        await both.Service.ScanAsync("TWO", Request); both.Advance(3); await both.Service.TickAsync();
+        Check(both.Service.TaskEnabled[0] && !both.Service.TaskEnabled[1], "timers independent per task");
+        both.Advance(2); await both.Service.TickAsync();
+        Check(both.Service.TaskEnabled.All(e => e), "second timer expires independently");
+    }
+    static async Task ConfiguredFields()
+    {
+        var single = Newtonsoft.Json.JsonConvert.DeserializeObject<MeshinaSettings>("{\"ItemNames\":{\"CustomValue\":\"MES_Custom\"}}");
+        single.ValidateItemNames();
+        Check(single.ItemNames.Count == 1 && single.ItemNames.ContainsKey("CustomValue"), "explicit configuration replaces default three fields");
+        foreach (var invalid in new[] {
+            new Dictionary<string, string>(), new Dictionary<string, string> { ["Fi"] = "" },
+            new Dictionary<string, string> { ["Fi"] = "same", ["Fr"] = "same" },
+            new Dictionary<string, string> { ["Fi"] = "one", ["fi"] = "two" },
+            new Dictionary<string, string> { ["bad]field"] = "one" } })
+        {
+            bool rejected = false;
+            try { new MeshinaSettings { ItemNames = invalid }.ValidateItemNames(); }
+            catch (InvalidDataException) { rejected = true; }
+            Check(rejected, "invalid field mapping rejected");
+        }
+        var names = new[] { "Fi", "fii", "Fr", "Fi1", "fii1", "Fr1" };
+        var mappings = names.Zip(new[] { "Midshaft_UptoothFi1", "Midshaft_UptoothFi2", "Midshaft_UptoothFr3",
+            "Midshaft_DowntoothFi1", "Midshaft_DowntoothFi2", "Midshaft_DowntoothFr3" }, (key, value) => new { key, value })
+            .ToDictionary(p => p.key, p => p.value);
+        var actualReader = new MdbReader("Microsoft.Jet.OLEDB.4.0", mappings.Keys);
+        var f = new Fixture(mappings, actualReader);
+        await f.Service.ScanAsync("SIX-FIELDS", Request);
+        string path = Path.Combine(f.Dir, "six.mdb");
+        string connectionString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" + path;
+        dynamic catalog = Activator.CreateInstance(Type.GetTypeFromProgID("ADOX.Catalog", true));
+        try { catalog.Create(connectionString); }
+        finally { System.Runtime.InteropServices.Marshal.FinalReleaseComObject(catalog); }
+        void Execute(string sql)
+        {
+            using var connection = new System.Data.OleDb.OleDbConnection(connectionString);
+            connection.Open(); using var command = connection.CreateCommand(); command.CommandText = sql; command.ExecuteNonQuery();
+        }
+        Execute("CREATE TABLE TJSHEET ([Fi] DOUBLE,[fii] DOUBLE,[Fr] DOUBLE,[Fi1] DOUBLE,[fii1] DOUBLE,[Fr1] DOUBLE,[Extra7] DOUBLE,[Result] TEXT(20))");
+        Execute("INSERT INTO TJSHEET VALUES (1.25,2.25,3.25,4.25,5.25,6.25,7.25,'FAIL')");
+        File.SetCreationTimeUtc(path, DateTime.UtcNow.AddSeconds(1));
+        await f.Service.TickAsync(); f.Advance(1); await f.Service.TickAsync();
+        var data = f.Gateway.Out.Single().SNInfo.Single().DC_Info;
+        Check(data.Select(d => d.Item).SequenceEqual(mappings.Values), "real MDB uploads all six MES mappings");
+        Check(data.Select(d => d.Value).SequenceEqual(new[] { "1.25", "2.25", "3.25", "4.25", "5.25", "6.25" }), "real MDB preserves six distinct values");
+        Check(f.Service.DisplayJobs[0].Measurement.Values.Count == 6, "display task retains six fields");
+        var logged = JObject.Parse(File.ReadAllLines(Directory.GetFiles(f.Log, "*.txt").Single()).Single());
+        Check(logged["Data"][0]["DC_Info"].Count() == 6, "txt includes all six uploaded fields");
+        Check(new MdbReader("Microsoft.Jet.OLEDB.4.0", names.Concat(new[] { "Extra7" })).Read(path).Values.Count == 7, "reader supports more than six fields");
+        Check(new MdbReader("Microsoft.Jet.OLEDB.4.0", new[] { "Extra7" }).Read(path).Values.Single().Value == 7.25m, "reader supports arbitrary configured subset");
+        Execute("UPDATE TJSHEET SET [Fr1]=NULL");
+        bool incomplete = false;
+        try { actualReader.Read(path); } catch (InvalidDataException) { incomplete = true; }
+        Check(incomplete, "null in sixth field cannot produce partial checkout");
+        bool missing = false;
+        try { new MdbReader("Microsoft.Jet.OLEDB.4.0", new[] { "MissingField" }).Read(path); }
+        catch (System.Data.OleDb.OleDbException) { missing = true; }
+        Check(missing, "missing configured column is not silently omitted");
     }
     static async Task QueueAndBinding()
     {
@@ -67,7 +170,7 @@ internal static class Program
         await f.Service.TickAsync();
         Check(f.Service.Jobs[0].MdbPath == a && f.Service.Jobs[1].MdbPath == b, "two files arriving together assigned FIFO");
         await f.Service.AbortAsync();
-        Check(f.Service.Jobs.Length == 0 && f.Service.LastFinished.Stage == MeshinaStage.Cancelled, "abort all queued");
+        Check(f.Service.Jobs.Length == 0 && f.Service.LastFinished == null && f.Service.DisplayJobs.All(j => j == null), "abort all queued");
         await f.Service.ScanAsync("A", Request);
         var c = f.File("c"); await f.Service.TickAsync(); f.Advance(1);
         f.Gateway.OutWait = new TaskCompletionSource<bool>();
@@ -81,7 +184,7 @@ internal static class Program
         Check(!abort.IsCompleted && !f.Service.CanScan && !f.Service.CanRetry, "abort blocks until pending requests complete");
         await f.Service.ScanAsync("C", Request);
         f.Gateway.OutWait.SetResult(true); await tick; await abort;
-        Check(f.Service.Jobs.Length == 0 && f.Service.LastFinished.Stage == MeshinaStage.Cancelled, "late checkout cannot revive aborted tasks");
+        Check(f.Service.Jobs.Length == 0 && f.Service.LastFinished == null && f.Service.DisplayJobs.All(j => j == null), "late checkout cannot revive aborted tasks");
         f.Service.Stop(); await f.Service.ScanAsync("C", Request);
         Check(f.Service.Jobs.Length == 0, "stopped refuses scan");
     }
@@ -98,19 +201,20 @@ internal static class Program
         Check(f.Service.DisplayJobs[0] == active && f.Service.DisplayJobs[1].Stage == MeshinaStage.Completed, "active and finished results remain in their own slots");
         f.Reader.FailPath = null; f.Gateway.Outcome = MeshinaMesOutcome.Unknown;
         await f.Service.TickAsync();
-        Check(f.Service.CanRetry && f.Service.Current.MdbPath == a, "unknown retains exact binding");
-        var payload = f.Gateway.Out.Last(); int count = f.Gateway.Out.Count;
-        await f.Service.TickAsync();
-        Check(f.Gateway.Out.Count == count, "no automatic retry for unknown");
-        f.Gateway.Outcome = MeshinaMesOutcome.Accepted; await f.Service.RetryAsync();
-        Check(f.Service.Current == null && ReferenceEquals(payload, f.Gateway.Out.Last()), "retry exact payload");
+        Check(!f.Service.CanRetry && f.Service.Current == null && f.Service.LastFinished.CheckoutReply.Outcome == MeshinaMesOutcome.Rejected, "unknown checkout ends as NG");
+        int count = f.Gateway.Out.Count;
+        await f.Service.TickAsync(); await f.Service.RetryAsync();
+        Check(f.Gateway.Out.Count == count, "NG is not retried");
         f.Gateway.InOutcome = MeshinaMesOutcome.Rejected;
+        await f.Service.ScanAsync("C", Request);
+        Check(f.Service.Current == null && f.Service.TaskEnabled.All(e => e), "feeding NG immediately releases slot");
+        f.Gateway.InOutcome = MeshinaMesOutcome.Unknown;
+        await f.Service.ScanAsync("C", Request);
+        Check(f.Service.DisplayJobs[0].FeedingReply.Outcome == MeshinaMesOutcome.Rejected && f.Service.Current == null, "unknown feeding ends as NG in slot one");
+        f.Gateway.InOutcome = MeshinaMesOutcome.Accepted;
         await f.Service.ScanAsync("C", Request); f.File("c");
-        await f.Service.TickAsync();
-        Check(f.Service.Current.MdbPath == null && f.Service.CanRetry, "failed feeding never checks out");
-        f.Gateway.InOutcome = MeshinaMesOutcome.Accepted; await f.Service.RetryAsync();
         await f.Service.TickAsync(); f.Advance(1); await f.Service.TickAsync();
-        Check(f.Service.Current == null, "feeding retry can complete");
+        Check(f.Service.Current == null, "rescan after feeding NG completes normally");
     }
     static async Task ImmediateReadAndLogFailure()
     {
@@ -158,11 +262,14 @@ internal static class Program
         public readonly Reader Reader = new Reader();
         public readonly MeshinaStationService Service;
         DateTime now = DateTime.UtcNow;
-        public Fixture()
+        public Fixture(Dictionary<string, string> items = null, IMdbReader mdbReader = null, int timeout = 100)
         {
             Directory.CreateDirectory(Dir);
-            Service = new MeshinaStationService(new MeshinaSettings { DataDirectory = Dir, CheckoutLogDirectory = Log },
-                new MdbPoller(Dir), Reader, Gateway, _ => { }, () => now);
+            var settings = new MeshinaSettings { DataDirectory = Dir, CheckoutLogDirectory = Log, MdbWaitTimeoutSeconds = timeout };
+            if (items != null) settings.ItemNames = items;
+            Reader.Fields = settings.ItemNames.Keys.ToArray();
+            Service = new MeshinaStationService(settings,
+                new MdbPoller(Dir), mdbReader ?? Reader, Gateway, _ => { }, () => now);
         }
         public void Advance(double seconds) { now = now.AddSeconds(seconds); }
         public string File(string name)
@@ -175,6 +282,7 @@ internal static class Program
     sealed class Reader : IMdbReader
     {
         public readonly List<string> Paths = new List<string>();
+        public string[] Fields;
         public string FailPath;
         public Action<string> AfterRead;
         public MeshinaMeasurement Read(string path)
@@ -182,7 +290,7 @@ internal static class Program
             lock (Paths) Paths.Add(path);
             if (path == FailPath) throw new IOException("busy");
             AfterRead?.Invoke(path);
-            return new MeshinaMeasurement { Values = MdbReader.NumericFields.ToDictionary(f => f, _ => Path.GetFileName(path) == "second.mdb" ? 2.34m : 1.23m), Result = "FAIL" };
+            return new MeshinaMeasurement { Values = Fields.ToDictionary(f => f, _ => Path.GetFileName(path) == "second.mdb" ? 2.34m : 1.23m), Result = "FAIL" };
         }
     }
     sealed class Gateway : IMeshinaMesGateway

@@ -15,6 +15,7 @@ namespace MeshinaStandalone
         private readonly Dictionary<string, string> bindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<MeshinaJob, TaskCompletionSource<bool>> operations = new Dictionary<MeshinaJob, TaskCompletionSource<bool>>();
         private readonly MeshinaSettings settings;
+        private readonly KeyValuePair<string, string>[] itemNames;
         private readonly MdbPoller poller;
         private readonly IMdbReader reader;
         private readonly IMeshinaMesGateway gateway;
@@ -28,14 +29,16 @@ namespace MeshinaStandalone
         public MeshinaJob Current { get { lock (sync) return jobs.FirstOrDefault(); } }
         public MeshinaJob LastFinished { get; private set; }
         public bool CanScan { get { lock (sync) return !stopped && !aborting && jobs.Count < Capacity; } }
-        public bool CanAbort { get { lock (sync) return !aborting && jobs.Count != 0; } }
-        private MeshinaJob RetryJob => jobs.FirstOrDefault(j => !j.AbortRequested && !operations.ContainsKey(j) &&
-            (j.Stage == MeshinaStage.FeedingCheckRejected || j.Stage == MeshinaStage.CheckOutRejected));
-        public bool CanRetry { get { lock (sync) return !aborting && RetryJob != null; } }
+        public bool CanAbort { get { lock (sync) return !aborting && displayJobs.Any(j => j != null); } }
+        public bool[] TaskEnabled { get { lock (sync) return displayJobs.Select(j => !stopped && !aborting && (j == null || !jobs.Contains(j))).ToArray(); } }
+        public bool CanRetry => false;
 
         public MeshinaStationService(MeshinaSettings settings, MdbPoller poller, IMdbReader reader,
             IMeshinaMesGateway gateway, Action<string> log, Func<DateTime> utcNow = null)
         {
+            settings.ValidateItemNames();
+            if (settings.MdbWaitTimeoutSeconds < 1) throw new ArgumentOutOfRangeException(nameof(settings.MdbWaitTimeoutSeconds));
+            itemNames = settings.ItemNames.ToArray();
             this.settings = settings; this.poller = poller; this.reader = reader;
             this.gateway = gateway; this.log = log; this.utcNow = utcNow ?? (() => DateTime.UtcNow);
         }
@@ -61,11 +64,9 @@ namespace MeshinaStandalone
                     job.BaselineFiles = files.Select(f => f.Path).ToList();
                     job.FeedingCheckRequest.SN = sn;
                     job.Stage = MeshinaStage.FeedingCheckSending;
-                    // 固定显示位置：先使用空位，再替换扫码时间最早且已结束的旧任务，绝不覆盖在途任务。
-                    int slot = Array.FindIndex(displayJobs, j => j == null);
-                    if (slot < 0)
-                        slot = Enumerable.Range(0, Capacity).Where(i => !jobs.Contains(displayJobs[i]))
-                            .OrderBy(i => displayJobs[i].ScanTimeUtc).First();
+                    job.MdbWaitTimeoutSeconds = settings.MdbWaitTimeoutSeconds;
+                    // 槽位1始终优先；jobs仍保持扫码先后顺序，用于MDB认领。
+                    int slot = Array.FindIndex(displayJobs, j => j == null || !jobs.Contains(j));
                     displayJobs[slot] = job;
                     jobs.Add(job);
                     return StartOperation(job, () => SendFeedingCheckAsync(job));
@@ -128,6 +129,8 @@ namespace MeshinaStandalone
                     LastFinished = job;
                     jobs.Remove(job);
                 }
+                Array.Clear(displayJobs, 0, displayJobs.Length);
+                LastFinished = null;
                 poller.Reset();
                 aborting = false;
                 Report("全部任务已终止。请确保旧件不再延迟保存MDB，再扫描新件。");
@@ -161,6 +164,7 @@ namespace MeshinaStandalone
                 {
                     var files = poller.Snapshot();
                     BindFiles(files); // 所有文件先认领，再开始任何读取或网络请求。
+                    ExpireWaitingJobs();
                     var pending = new List<Task>();
                     foreach (var job in jobs.ToArray())
                     {
@@ -176,7 +180,7 @@ namespace MeshinaStandalone
                     }
                     return Task.WhenAll(pending);
                 }
-                catch (Exception ex) { Report("MDB轮询失败：" + ex.Message); return Task.CompletedTask; }
+                catch (Exception ex) { Report("MDB轮询失败：" + ex.Message); ExpireWaitingJobs(); return Task.CompletedTask; }
             }
         }
 
@@ -191,10 +195,10 @@ namespace MeshinaStandalone
                 job.CheckOutRequest.SNInfo = new[] { new SNInfo
                 {
                     SN = job.SN, Result = "PASS", CompList = Array.Empty<CompList>(),
-                    DC_Info = MdbReader.NumericFields.Select(field => new DC_Info
+                    DC_Info = itemNames.Select(field => new DC_Info
                     {
-                        Item = settings.ItemNames.TryGetValue(field, out string name) && !string.IsNullOrWhiteSpace(name) ? name : field,
-                        Value = measurement.Values[field].ToString(CultureInfo.InvariantCulture), Result = "PASS"
+                        Item = field.Value,
+                        Value = measurement.Values[field.Key].ToString(CultureInfo.InvariantCulture), Result = "PASS"
                     }).ToArray()
                 } };
                 job.Stage = MeshinaStage.ReadyForCheckOut;
@@ -202,15 +206,23 @@ namespace MeshinaStandalone
             await SendCheckOutAsync(job).ConfigureAwait(false);
         }
 
-        public Task RetryAsync()
+        public Task RetryAsync() => Task.CompletedTask;
+
+        private void ExpireWaitingJobs()
         {
-            lock (sync)
+            foreach (var job in jobs.Where(j => j.Stage == MeshinaStage.WaitingForMdb && j.MdbPath == null &&
+                j.FeedingAcceptedUtc.HasValue && utcNow() - j.FeedingAcceptedUtc.Value >= TimeSpan.FromSeconds(j.MdbWaitTimeoutSeconds)).ToArray())
             {
-                var job = RetryJob;
-                if (stopped || aborting || job == null) return Task.CompletedTask;
-                return StartOperation(job, () => job.Stage == MeshinaStage.FeedingCheckRejected ? SendFeedingCheckAsync(job) : SendCheckOutAsync(job));
+                job.Stage = MeshinaStage.MdbTimedOut;
+                job.Message = $"超过{job.MdbWaitTimeoutSeconds}秒未检测到MDB，超时重扫";
+                jobs.Remove(job); LastFinished = job;
+                Report($"SN:{job.SN} {job.Message}");
             }
         }
+
+        private static MeshinaMesReply TreatUnknownAsNg(MeshinaMesReply reply) => reply?.Outcome == MeshinaMesOutcome.Unknown || reply == null
+            ? new MeshinaMesReply { Outcome = MeshinaMesOutcome.Rejected, Message = "结果未知，按NG处理，请重新啮合。" + reply?.Message }
+            : reply;
 
         private async Task SendFeedingCheckAsync(MeshinaJob job)
         {
@@ -225,11 +237,14 @@ namespace MeshinaStandalone
             catch (Exception ex) { reply = new MeshinaMesReply { Outcome = MeshinaMesOutcome.Unknown, Message = ex.Message }; }
             lock (sync)
             {
+                reply = TreatUnknownAsNg(reply);
                 job.FeedingReply = reply;
                 if (job.AbortRequested) return;
                 job.Stage = reply.Outcome == MeshinaMesOutcome.Accepted ? MeshinaStage.WaitingForMdb : MeshinaStage.FeedingCheckRejected;
                 job.Message = reply.Message;
-                Report($"SN:{job.SN} " + (reply.Outcome == MeshinaMesOutcome.Accepted ? "进站OK，可以开始啮合，等待MDB。" : "进站未成功，请核实后重试或终止。") + reply.Message);
+                if (reply.Outcome == MeshinaMesOutcome.Accepted) job.FeedingAcceptedUtc = utcNow();
+                else { jobs.Remove(job); LastFinished = job; }
+                Report($"SN:{job.SN} " + (reply.Outcome == MeshinaMesOutcome.Accepted ? "进站OK，可以开始啮合，等待MDB。" : "进站NG，本次任务已释放，请重新扫码。") + reply.Message);
             }
         }
 
@@ -251,21 +266,14 @@ namespace MeshinaStandalone
             catch (Exception ex) { reply = new MeshinaMesReply { Outcome = MeshinaMesOutcome.Unknown, Message = ex.Message }; }
             lock (sync)
             {
+                reply = TreatUnknownAsNg(reply);
                 job.CheckoutReply = reply;
                 if (job.AbortRequested) return;
                 job.Message = reply.Message;
-                if (reply.Outcome != MeshinaMesOutcome.Unknown)
-                {
-                    job.Stage = MeshinaStage.Completed;
-                    jobs.Remove(job); LastFinished = job;
-                    poller.Reset(job.MdbPath);
-                    Report($"SN:{job.SN} 出站{(reply.Outcome == MeshinaMesOutcome.Accepted ? "OK" : "NG")}，本次任务已结束。{reply.Message}");
-                }
-                else
-                {
-                    job.Stage = MeshinaStage.CheckOutRejected;
-                    Report($"SN:{job.SN} 出站结果未知，原数据已保留，请核实MES记录后再重试。{reply.Message}");
-                }
+                job.Stage = MeshinaStage.Completed;
+                jobs.Remove(job); LastFinished = job;
+                poller.Reset(job.MdbPath);
+                Report($"SN:{job.SN} 出站{(reply.Outcome == MeshinaMesOutcome.Accepted ? "OK" : "NG")}，本次任务已结束。{reply.Message}");
             }
         }
         private void Report(string message) { status = message; log(message); }

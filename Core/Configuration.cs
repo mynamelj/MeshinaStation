@@ -62,12 +62,22 @@ namespace MeshinaStandalone
     {
         public string DataDirectory { get; set; } = @"D:\齿轮双面啮合仪检测系统\统计";
         public string Provider { get; set; } = "Microsoft.Jet.OLEDB.4.0";
+        public int MdbWaitTimeoutSeconds { get; set; } = 100;
         public int PollIntervalMilliseconds { get; set; } = 1000;
         public string CheckoutLogDirectory { get; set; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "checkout");
         public int StationNumber { get; set; } = 1;
         public int ScannerIndex { get; set; }
+        [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
         public Dictionary<string, string> ItemNames { get; set; } = new Dictionary<string, string>
         { ["Fi"] = "Outshaft_ToothFi1", ["fii"] = "Outshaft_ToothFi2", ["Fr"] = "Outshaft_ToothFi3" };
+        public void ValidateItemNames()
+        {
+            if (ItemNames == null || ItemNames.Count == 0 ||
+                ItemNames.Any(p => string.IsNullOrWhiteSpace(p.Value)) ||
+                ItemNames.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != ItemNames.Count)
+                throw new InvalidDataException("ItemNames至少配置一项，MES项目名不能为空或重复。");
+            MdbReader.ValidateFields(ItemNames.Keys);
+        }
     }
     public sealed class Configuration
     {
@@ -94,10 +104,9 @@ namespace MeshinaStandalone
                 throw new InvalidDataException("stationNumber.json工位编号必须唯一且大于0，名称不能为空。");
             if (config.Systems == null || config.Apis == null || config.Systems.Any(s => s == null) || config.Apis.Any(a => a == null)) throw new InvalidDataException("sys/api的ListGroup不能为空或包含null。");
             var m = config.Meshina;
-            if (m.PollIntervalMilliseconds < 200 || string.IsNullOrWhiteSpace(m.CheckoutLogDirectory) || string.IsNullOrWhiteSpace(m.DataDirectory) || !Path.IsPathRooted(m.DataDirectory) || string.IsNullOrWhiteSpace(m.Provider))
-                throw new InvalidDataException("meshina.json需配置MDB绝对目录、驱动、至少200ms轮询及出站日志目录。");
-            if (m.ItemNames == null || MdbReader.NumericFields.Any(f => !m.ItemNames.ContainsKey(f) || string.IsNullOrWhiteSpace(m.ItemNames[f])) || m.ItemNames.Values.Distinct().Count() != m.ItemNames.Count)
-                throw new InvalidDataException("Fi、fii、Fr必须配置不同的MES项目名。");
+            if (m.MdbWaitTimeoutSeconds < 1 || m.PollIntervalMilliseconds < 200 || string.IsNullOrWhiteSpace(m.CheckoutLogDirectory) || string.IsNullOrWhiteSpace(m.DataDirectory) || !Path.IsPathRooted(m.DataDirectory) || string.IsNullOrWhiteSpace(m.Provider))
+                throw new InvalidDataException("meshina.json需配置MDB绝对目录、驱动、至少200ms轮询、出站日志目录及大于0秒的MDB等待超时。");
+            m.ValidateItemNames();
             config.Resolve(m.StationNumber);
             return config;
         }

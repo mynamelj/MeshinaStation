@@ -3,7 +3,7 @@
 namespace MeshinaStandalone
 {
     public enum MeshinaStage { FeedingCheckSending, FeedingCheckRejected, WaitingForMdb,
-        ReadyForCheckOut, CheckOutSending, CheckOutRejected, Completed, Cancelled }
+        ReadyForCheckOut, CheckOutSending, CheckOutRejected, Completed, Cancelled, MdbTimedOut }
 
     public sealed class MeshinaJob
     {
@@ -11,6 +11,8 @@ namespace MeshinaStandalone
         public DateTime ScanTimeUtc { get; set; }
         public List<string> BaselineFiles { get; set; }
         public MeshinaStage Stage { get; set; }
+        public DateTime? FeedingAcceptedUtc { get; set; }
+        public int MdbWaitTimeoutSeconds { get; set; }
         public DateTime? MdbBoundUtc { get; set; }
         public string MdbPath { get; set; }
         public MeshinaMeasurement Measurement { get; set; }

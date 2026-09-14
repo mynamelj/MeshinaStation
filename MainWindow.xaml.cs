@@ -28,6 +28,7 @@ namespace MeshinaStandalone
             try
             {
                 config = Configuration.Load(configDirectory);
+                MdbTimeoutBox.Text = config.Meshina.MdbWaitTimeoutSeconds.ToString();
                 StationBox.ItemsSource = config.Stations;
                 StationBox.SelectedItem = config.Stations.Single(s => s.Number == config.Meshina.StationNumber);
                 StatusText.Text = "请核对工位、线别及接口，点击启动工位";
@@ -51,13 +52,16 @@ namespace MeshinaStandalone
             try
             {
                 if (service != null || config == null || !(StationBox.SelectedItem is Station station)) return;
+                if (!int.TryParse(MdbTimeoutBox.Text, out int timeout) || timeout < 1)
+                    throw new InvalidOperationException("等待MDB超时必须为大于0的整数秒。");
+                config.Meshina.MdbWaitTimeoutSeconds = timeout;
                 var selected = config.Resolve(station.Number); system = selected.system; api = selected.api;
                 if (system.IsSimulate) throw new InvalidOperationException("sys.json的IsSimulate为true；本程序只支持真实MES流程，请核对后设为false。");
                 if (!Directory.Exists(config.Meshina.DataDirectory)) throw new DirectoryNotFoundException("MDB目录不存在：" + config.Meshina.DataDirectory);
                 if (Type.GetTypeFromProgID(config.Meshina.Provider) == null) throw new InvalidOperationException("未安装32位数据库驱动：" + config.Meshina.Provider);
                 _ = new MdbPoller(config.Meshina.DataDirectory).Snapshot();
                 gateway = new MeshinaMesGateway(api, Log);
-                service = new MeshinaStationService(config.Meshina, new MdbPoller(config.Meshina.DataDirectory), new MdbReader(config.Meshina.Provider), gateway, Log);
+                service = new MeshinaStationService(config.Meshina, new MdbPoller(config.Meshina.DataDirectory), new MdbReader(config.Meshina.Provider, config.Meshina.ItemNames.Keys), gateway, Log);
                 // 三个啮合站均连接scan.json中指定的COM口。
                 {
                     scanner = new SerialScanner(config.Scanners[config.Meshina.ScannerIndex], sn =>
@@ -109,12 +113,6 @@ namespace MeshinaStandalone
             catch (Exception ex) { Log("操作失败：" + ex.Message); }
             finally { busy = false; Render(); }
         }
-        private async void RetryClick(object sender, RoutedEventArgs e)
-        {
-            if (service?.CanRetry != true) return;
-            if (MessageBox.Show("将重发当前任务的MES请求。若上次超时或结果未知，请先核实MES记录。确认重试？", "重试原任务", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
-                await Operate(() => service.RetryAsync());
-        }
         private async void AbortClick(object sender, RoutedEventArgs e)
         {
             if (service?.CanAbort != true) return;
@@ -133,7 +131,7 @@ namespace MeshinaStandalone
             StationBox.IsEnabled = !running && !busy; StartButton.IsEnabled = config != null && !running && !busy;
             SettingsButton.IsEnabled = !running && !busy; StopButton.IsEnabled = running && service.Current == null && !busy;
             SnBox.IsEnabled = running && !busy && service.CanScan; ScanButton.IsEnabled = SnBox.IsEnabled;
-            RetryButton.IsEnabled = !busy && service?.CanRetry == true;
+            MdbTimeoutBox.IsEnabled = !running && !busy;
             AbortButton.IsEnabled = service?.CanAbort == true;
             if (running) StatusText.Text = service.Status;
             var queued = service?.Jobs ?? Array.Empty<MeshinaJob>();
@@ -141,20 +139,22 @@ namespace MeshinaStandalone
             var displayed = service?.DisplayJobs ?? new MeshinaJob[MeshinaStationService.Capacity];
             TaskCards.ItemsSource = displayed.Select((job, index) => new
             {
-                Title = $"任务 {index + 1}",
+                Title = $"任务 {index + 1} · " + (queued.Contains(job) ? "占用" : "可扫码"),
                 SN = "SN：" + (job?.SN ?? "—"),
                 ScanTime = "扫码时间：" + (job == null ? "—" : job.ScanTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")),
                 Stage = job == null ? "等待扫码" : StageName(job.Stage),
+                StageColor = job?.Stage == MeshinaStage.MdbTimedOut ? System.Windows.Media.Brushes.DarkOrange : System.Windows.Media.Brushes.SteelBlue,
                 Feeding = ResultText(job?.FeedingReply, job?.Stage == MeshinaStage.FeedingCheckSending, job?.Stage == MeshinaStage.Cancelled, "待扫码"),
-                Checkout = ResultText(job?.CheckoutReply, job?.Stage == MeshinaStage.CheckOutSending, job?.Stage == MeshinaStage.Cancelled,
+                Checkout = job?.Stage == MeshinaStage.MdbTimedOut ? "超时重扫" : ResultText(job?.CheckoutReply, job?.Stage == MeshinaStage.CheckOutSending, job?.Stage == MeshinaStage.Cancelled,
                     job?.FeedingReply?.Outcome == MeshinaMesOutcome.Accepted ? "待检测" : "未开始"),
                 FeedingColor = ResultColor(job?.FeedingReply, job?.Stage == MeshinaStage.FeedingCheckSending),
-                CheckoutColor = ResultColor(job?.CheckoutReply, job?.Stage == MeshinaStage.CheckOutSending),
+                CheckoutColor = job?.Stage == MeshinaStage.MdbTimedOut ? System.Windows.Media.Brushes.DarkOrange : ResultColor(job?.CheckoutReply, job?.Stage == MeshinaStage.CheckOutSending),
                 FeedingMessage = job?.FeedingReply?.Message,
                 CheckoutMessage = job?.CheckoutReply?.Message,
                 Mdb = "MDB：" + (job?.MdbPath == null ? "未绑定" : Path.GetFileName(job.MdbPath)),
                 MdbPath = job?.MdbPath,
-                Values = MdbReader.NumericFields.Select(field => new
+                ValuesHeight = Math.Min(182, 32 + 25 * (config?.Meshina.ItemNames.Count ?? 0)),
+                Values = (config?.Meshina.ItemNames.Keys.AsEnumerable() ?? Enumerable.Empty<string>()).Select(field => new
                 {
                     Field = field,
                     Value = job?.Measurement?.Values.TryGetValue(field, out var value) == true ? value.ToString(CultureInfo.InvariantCulture) : "—"
@@ -173,7 +173,8 @@ namespace MeshinaStandalone
         private static string StageName(MeshinaStage stage) => stage switch
         {
             MeshinaStage.FeedingCheckSending => "正在进站校验",
-            MeshinaStage.FeedingCheckRejected => "进站未成功，请处理",
+            MeshinaStage.FeedingCheckRejected => "进站NG，请重新扫码",
+            MeshinaStage.MdbTimedOut => "未检测到MDB，超时重扫",
             MeshinaStage.WaitingForMdb => "等待检测并保存MDB",
             MeshinaStage.ReadyForCheckOut => "数据已读取，等待出站",
             MeshinaStage.CheckOutSending => "正在提交MES出站",
