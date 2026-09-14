@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MeshinaStandalone")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c412101a6e6bf035fac96cb07710616c3178e165")]
 [assembly: System.Reflection.AssemblyProductAttribute("MeshinaStandalone")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MeshinaStandalone")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

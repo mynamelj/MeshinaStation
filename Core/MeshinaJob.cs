@@ -1,4 +1,4 @@
-
+﻿
 
 namespace MeshinaStandalone
 {
@@ -11,6 +11,7 @@ namespace MeshinaStandalone
         public DateTime ScanTimeUtc { get; set; }
         public List<string> BaselineFiles { get; set; }
         public MeshinaStage Stage { get; set; }
+        public DateTime? MdbBoundUtc { get; set; }
         public string MdbPath { get; set; }
         public MeshinaMeasurement Measurement { get; set; }
         public FeedingCheckModel FeedingCheckRequest { get; set; }

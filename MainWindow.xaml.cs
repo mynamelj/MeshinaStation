@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -118,8 +118,9 @@ namespace MeshinaStandalone
         private async void AbortClick(object sender, RoutedEventArgs e)
         {
             if (service?.CanAbort != true) return;
-            if (MessageBox.Show("终止本件将清空当前任务，已发送MES请求无法撤回。请确保旧件不再检测或延迟保存MDB，再扫描新件。", "终止本件", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
-                await Operate(() => service.AbortAsync());
+            if (MessageBox.Show("终止将清空队列中的全部任务，已发送MES请求无法撤回。请确保旧件不再检测或延迟保存MDB，再扫描新件。", "终止全部任务", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                await service.AbortAsync();
+            Render();
         }
         private void SettingsClick(object sender, RoutedEventArgs e)
         {
@@ -131,44 +132,44 @@ namespace MeshinaStandalone
             bool running = service != null;
             StationBox.IsEnabled = !running && !busy; StartButton.IsEnabled = config != null && !running && !busy;
             SettingsButton.IsEnabled = !running && !busy; StopButton.IsEnabled = running && service.Current == null && !busy;
-            SnBox.IsEnabled = running && !busy; ScanButton.IsEnabled = running && !busy;
+            SnBox.IsEnabled = running && !busy && service.CanScan; ScanButton.IsEnabled = SnBox.IsEnabled;
             RetryButton.IsEnabled = !busy && service?.CanRetry == true;
-            AbortButton.IsEnabled = !busy && service?.CanAbort == true;
+            AbortButton.IsEnabled = service?.CanAbort == true;
             if (running) StatusText.Text = service.Status;
-            var job = service?.Current ?? service?.LastFinished;
-            JobText.Text = job == null ? "SN：—" : $"SN：{job.SN}";
-            JobText.ToolTip = job?.MdbPath;
-            ScanTimeText.Text = job == null ? "扫码时间：—" : "扫码时间：" + job.ScanTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
-            SetResultLabel(FeedingResultLabel, job?.FeedingReply, job?.Stage == MeshinaStage.FeedingCheckSending,
-                job?.Stage == MeshinaStage.Cancelled, "待扫码");
-            SetResultLabel(CheckoutResultLabel, job?.CheckoutReply, job?.Stage == MeshinaStage.CheckOutSending,
-                job?.Stage == MeshinaStage.Cancelled, job?.FeedingReply?.Outcome == MeshinaMesOutcome.Accepted ? "待检测" : "未开始");
-            StatusText.ToolTip = StatusText.Text;
-            if (config == null) { ValuesGrid.ItemsSource = null; return; }
-            ValuesGrid.ItemsSource = MdbReader.NumericFields.Select(f => new
+            var queued = service?.Jobs ?? Array.Empty<MeshinaJob>();
+            QueueText.Text = $"任务队列（{queued.Length}/2） · 结束结果保留至该位置接收新任务";
+            var displayed = service?.DisplayJobs ?? new MeshinaJob[MeshinaStationService.Capacity];
+            TaskCards.ItemsSource = displayed.Select((job, index) => new
             {
-                Field = f, Item = config.Meshina.ItemNames[f],
-                Value = job?.Measurement?.Values.TryGetValue(f, out var value) == true ? value.ToString(CultureInfo.InvariantCulture) : "—"
+                Title = $"任务 {index + 1}",
+                SN = "SN：" + (job?.SN ?? "—"),
+                ScanTime = "扫码时间：" + (job == null ? "—" : job.ScanTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")),
+                Stage = job == null ? "等待扫码" : StageName(job.Stage),
+                Feeding = ResultText(job?.FeedingReply, job?.Stage == MeshinaStage.FeedingCheckSending, job?.Stage == MeshinaStage.Cancelled, "待扫码"),
+                Checkout = ResultText(job?.CheckoutReply, job?.Stage == MeshinaStage.CheckOutSending, job?.Stage == MeshinaStage.Cancelled,
+                    job?.FeedingReply?.Outcome == MeshinaMesOutcome.Accepted ? "待检测" : "未开始"),
+                FeedingColor = ResultColor(job?.FeedingReply, job?.Stage == MeshinaStage.FeedingCheckSending),
+                CheckoutColor = ResultColor(job?.CheckoutReply, job?.Stage == MeshinaStage.CheckOutSending),
+                FeedingMessage = job?.FeedingReply?.Message,
+                CheckoutMessage = job?.CheckoutReply?.Message,
+                Mdb = "MDB：" + (job?.MdbPath == null ? "未绑定" : Path.GetFileName(job.MdbPath)),
+                MdbPath = job?.MdbPath,
+                Values = MdbReader.NumericFields.Select(field => new
+                {
+                    Field = field,
+                    Value = job?.Measurement?.Values.TryGetValue(field, out var value) == true ? value.ToString(CultureInfo.InvariantCulture) : "—"
+                }).ToArray()
             }).ToArray();
+            StatusText.ToolTip = StatusText.Text;
         }
-        private static void SetResultLabel(TextBlock label, MeshinaMesReply reply, bool sending, bool cancelled, string waiting)
-        {
-            label.ToolTip = reply?.Message;
-            if (sending)
-            {
-                label.Text = "处理中…"; label.Foreground = System.Windows.Media.Brushes.DodgerBlue;
-            }
-            else if (reply != null)
-            {
-                label.Text = reply.Outcome == MeshinaMesOutcome.Accepted ? "OK" : reply.Outcome == MeshinaMesOutcome.Rejected ? "NG" : "结果未知";
-                label.Foreground = reply.Outcome == MeshinaMesOutcome.Accepted ? System.Windows.Media.Brushes.ForestGreen :
-                    reply.Outcome == MeshinaMesOutcome.Rejected ? System.Windows.Media.Brushes.Firebrick : System.Windows.Media.Brushes.DarkOrange;
-            }
-            else
-            {
-                label.Text = cancelled ? "已终止" : waiting; label.Foreground = System.Windows.Media.Brushes.SlateGray;
-            }
-        }
+        private static string ResultText(MeshinaMesReply reply, bool sending, bool cancelled, string waiting) =>
+            sending ? "处理中…" : reply != null ?
+                (reply.Outcome == MeshinaMesOutcome.Accepted ? "OK" : reply.Outcome == MeshinaMesOutcome.Rejected ? "NG" : "结果未知") :
+                cancelled ? "已终止" : waiting;
+        private static System.Windows.Media.Brush ResultColor(MeshinaMesReply reply, bool sending) =>
+            sending ? System.Windows.Media.Brushes.DodgerBlue : reply == null ? System.Windows.Media.Brushes.SlateGray :
+                reply.Outcome == MeshinaMesOutcome.Accepted ? System.Windows.Media.Brushes.ForestGreen :
+                reply.Outcome == MeshinaMesOutcome.Rejected ? System.Windows.Media.Brushes.Firebrick : System.Windows.Media.Brushes.DarkOrange;
         private static string StageName(MeshinaStage stage) => stage switch
         {
             MeshinaStage.FeedingCheckSending => "正在进站校验",

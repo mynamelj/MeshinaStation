@@ -87,8 +87,7 @@
               "RelativeToolTip": "Core\\Configuration.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-09-14T05:32:13.712Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-09-14T05:32:13.712Z"
             },
             {
               "$type": "Document",
@@ -96,11 +95,10 @@
               "Title": "MainWindow.xaml",
               "DocumentMoniker": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\MainWindow.xaml",
               "RelativeDocumentMoniker": "MainWindow.xaml",
-              "ToolTip": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\MainWindow.xaml*",
-              "RelativeToolTip": "MainWindow.xaml*",
+              "ToolTip": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\MainWindow.xaml",
+              "RelativeToolTip": "MainWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2026-09-11T09:14:05.768Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-09-11T09:14:05.768Z"
             },
             {
               "$type": "Document",
@@ -112,8 +110,7 @@
               "RelativeToolTip": "Core\\SerialScanner.cs",
               "ViewState": "AgIAAB4AAAAAAAAAAAAYwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-09-11T05:41:56.929Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-09-11T05:41:56.929Z"
             },
             {
               "$type": "Document",
@@ -125,8 +122,7 @@
               "RelativeToolTip": "Core\\Requests.cs",
               "ViewState": "AgIAAB8AAAAAAAAAAAA0wAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-09-11T05:41:53.334Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-09-11T05:41:53.334Z"
             },
             {
               "$type": "Document",

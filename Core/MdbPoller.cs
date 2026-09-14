@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 
 namespace MeshinaStandalone
 {
@@ -14,9 +14,7 @@ namespace MeshinaStandalone
     public sealed class MdbPoller
     {
         private readonly string directory;
-        private string lastPath;
-        private string lastStamp;
-        private int stableCount;
+        private readonly Dictionary<string, (string stamp, int count)> stability = new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase);
 
         public MdbPoller(string directory) { this.directory = directory; }
 
@@ -37,11 +35,12 @@ namespace MeshinaStandalone
 
         public bool IsStable(MdbFile file, int requiredCount)
         {
-            if (file.Path == lastPath && file.Stamp == lastStamp) stableCount++;
-            else { lastPath = file.Path; lastStamp = file.Stamp; stableCount = 1; }
-            return file.Length > 0 && stableCount >= requiredCount;
+            int count = stability.TryGetValue(file.Path, out var previous) && previous.stamp == file.Stamp ? previous.count + 1 : 1;
+            stability[file.Path] = (file.Stamp, count);
+            return file.Length > 0 && count >= requiredCount;
         }
 
-        public void Reset() { lastPath = null; lastStamp = null; stableCount = 0; }
+        public void Reset(string path) { stability.Remove(path); }
+        public void Reset() { stability.Clear(); }
     }
 }

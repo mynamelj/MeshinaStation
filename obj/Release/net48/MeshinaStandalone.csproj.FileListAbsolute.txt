@@ -43,3 +43,4 @@ D:\Document\DotNet Project\Mes\MeshinaStandalone\obj\Release\net48\MeshinaStanda
 D:\Document\DotNet Project\Mes\MeshinaStandalone\obj\Release\net48\MeshinaS.680CAFCF.Up2Date
 D:\Document\DotNet Project\Mes\MeshinaStandalone\obj\Release\net48\MeshinaStandalone.exe
 D:\Document\DotNet Project\Mes\MeshinaStandalone\obj\Release\net48\MeshinaStandalone.pdb
+D:\Document\DotNet Project\Mes\MeshinaStandalone\obj\Release\net48\MeshinaStandalone.sourcelink.json

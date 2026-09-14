@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.IO.Ports;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
@@ -63,7 +63,7 @@ namespace MeshinaStandalone
         public string DataDirectory { get; set; } = @"D:\齿轮双面啮合仪检测系统\统计";
         public string Provider { get; set; } = "Microsoft.Jet.OLEDB.4.0";
         public int PollIntervalMilliseconds { get; set; } = 1000;
-        public int StablePollCount { get; set; } = 3;
+        public string CheckoutLogDirectory { get; set; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "checkout");
         public int StationNumber { get; set; } = 1;
         public int ScannerIndex { get; set; }
         public Dictionary<string, string> ItemNames { get; set; } = new Dictionary<string, string>
@@ -94,8 +94,8 @@ namespace MeshinaStandalone
                 throw new InvalidDataException("stationNumber.json工位编号必须唯一且大于0，名称不能为空。");
             if (config.Systems == null || config.Apis == null || config.Systems.Any(s => s == null) || config.Apis.Any(a => a == null)) throw new InvalidDataException("sys/api的ListGroup不能为空或包含null。");
             var m = config.Meshina;
-            if (m.PollIntervalMilliseconds < 200 || m.StablePollCount < 2 || string.IsNullOrWhiteSpace(m.DataDirectory) || !Path.IsPathRooted(m.DataDirectory) || string.IsNullOrWhiteSpace(m.Provider))
-                throw new InvalidDataException("meshina.json需配置MDB绝对目录、驱动、至少200ms轮询和至少2次稳定检查。");
+            if (m.PollIntervalMilliseconds < 200 || string.IsNullOrWhiteSpace(m.CheckoutLogDirectory) || string.IsNullOrWhiteSpace(m.DataDirectory) || !Path.IsPathRooted(m.DataDirectory) || string.IsNullOrWhiteSpace(m.Provider))
+                throw new InvalidDataException("meshina.json需配置MDB绝对目录、驱动、至少200ms轮询及出站日志目录。");
             if (m.ItemNames == null || MdbReader.NumericFields.Any(f => !m.ItemNames.ContainsKey(f) || string.IsNullOrWhiteSpace(m.ItemNames[f])) || m.ItemNames.Values.Distinct().Count() != m.ItemNames.Count)
                 throw new InvalidDataException("Fi、fii、Fr必须配置不同的MES项目名。");
             config.Resolve(m.StationNumber);
