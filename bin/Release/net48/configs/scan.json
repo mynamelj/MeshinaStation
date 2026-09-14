@@ -1,0 +1,3 @@
+[
+  { "Com": 2, "BaudRate": "9600", "Parity": "None", "DataBits": "8", "StopBits": "One", "EndLine": "\\r\\n" }
+]

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF><PlatformTarget>x86</PlatformTarget>
+    <LangVersion>10</LangVersion><ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Data"/><Reference Include="System.Net.Http"/>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
+    <None Update="configs\*.json" CopyToOutputDirectory="PreserveNewest"/>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,148 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|d:\\document\\dotnet project\\mes\\meshinastandalone\\core\\meshinastationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|solutionrelative:core\\meshinastationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|d:\\document\\dotnet project\\mes\\meshinastandalone\\core\\requests.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|solutionrelative:core\\requests.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|d:\\document\\dotnet project\\mes\\meshinastandalone\\core\\serialscanner.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|solutionrelative:core\\serialscanner.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|d:\\document\\dotnet project\\mes\\meshinastandalone\\core\\configuration.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|solutionrelative:core\\configuration.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|d:\\document\\dotnet project\\mes\\meshinastandalone\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|solutionrelative:mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|d:\\document\\dotnet project\\mes\\meshinastandalone\\configs\\meshina.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{3E93C036-804D-42CA-B877-F39C21967212}|MeshinaStandalone.csproj|solutionrelative:configs\\meshina.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 7,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:130:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:131:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c64b9c2-e352-428e-a56d-0ace190b99a6}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{40ea2e6b-2121-4bb8-a43e-c83c04b51041}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "MeshinaStationService.cs",
+              "DocumentMoniker": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\Core\\MeshinaStationService.cs",
+              "RelativeDocumentMoniker": "Core\\MeshinaStationService.cs",
+              "ToolTip": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\Core\\MeshinaStationService.cs",
+              "RelativeToolTip": "Core\\MeshinaStationService.cs",
+              "ViewState": "AgIAAJkAAAAAAAAAAAAYwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-14T05:32:18.775Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Configuration.cs",
+              "DocumentMoniker": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\Core\\Configuration.cs",
+              "RelativeDocumentMoniker": "Core\\Configuration.cs",
+              "ToolTip": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\Core\\Configuration.cs",
+              "RelativeToolTip": "Core\\Configuration.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-14T05:32:13.712Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "MainWindow.xaml",
+              "DocumentMoniker": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\MainWindow.xaml",
+              "RelativeDocumentMoniker": "MainWindow.xaml",
+              "ToolTip": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\MainWindow.xaml*",
+              "RelativeToolTip": "MainWindow.xaml*",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-09-11T09:14:05.768Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "SerialScanner.cs",
+              "DocumentMoniker": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\Core\\SerialScanner.cs",
+              "RelativeDocumentMoniker": "Core\\SerialScanner.cs",
+              "ToolTip": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\Core\\SerialScanner.cs",
+              "RelativeToolTip": "Core\\SerialScanner.cs",
+              "ViewState": "AgIAAB4AAAAAAAAAAAAYwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-11T05:41:56.929Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Requests.cs",
+              "DocumentMoniker": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\Core\\Requests.cs",
+              "RelativeDocumentMoniker": "Core\\Requests.cs",
+              "ToolTip": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\Core\\Requests.cs",
+              "RelativeToolTip": "Core\\Requests.cs",
+              "ViewState": "AgIAAB8AAAAAAAAAAAA0wAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-11T05:41:53.334Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "meshina.json",
+              "DocumentMoniker": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\configs\\meshina.json",
+              "RelativeDocumentMoniker": "configs\\meshina.json",
+              "ToolTip": "D:\\Document\\DotNet Project\\Mes\\MeshinaStandalone\\configs\\meshina.json",
+              "RelativeToolTip": "configs\\meshina.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-09-11T05:11:28.959Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

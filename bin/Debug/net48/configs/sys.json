@@ -1,0 +1,11 @@
+{
+  "ListGroup": [{
+    "StationNumber": 1,
+    "Line": "XC-SUB-02",
+    "StationID": "OP2020Meshina",
+    "MachineID": "L2-OP2020Meshina",
+    "OPID": "", "Token": "", "FixSN": "", "Mold": "",
+    "RegexRule": "^[0-9A-Za-z\\-\\*\\&\\.\\|]*$",
+    "SNCodeLen": 0, "IsSimulate": false
+  }]
+}

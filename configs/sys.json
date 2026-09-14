@@ -1,0 +1,11 @@
+{
+  "ListGroup": [{
+    "StationNumber": 1,
+    "Line": "请填写现场线别",
+    "StationID": "OP2030Meshina1",
+    "MachineID": "OP2030Meshina1",
+    "OPID": "", "Token": "", "FixSN": "", "Mold": "",
+    "RegexRule": "^[0-9A-Za-z\\-\\*\\&\\.\\|]*$",
+    "SNCodeLen": 0, "IsSimulate": false
+  }]
+}
