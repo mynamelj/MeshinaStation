@@ -1,8 +1,0 @@
-{
-  "ListGroup": [{
-    "StationNumber": 1,
-    "BaseUrl": "http://10.147.4.201/XP001SUB_API/api/",
-    "FeedingCheck": "StandAlone/SN_FeedingCheck",
-    "CheckOutApi": "StandAlone/SN_CheckOut"
-  }]
-}
